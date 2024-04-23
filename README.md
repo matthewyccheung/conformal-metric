@@ -14,7 +14,7 @@ We apply our method to sparse-view CT for downstream radiotherapy planning and s
 Our work paves the way for more meaningful reconstruction bounds.
 
 ## Implement
-```
+```python
 import mg
 
 ...
