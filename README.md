@@ -17,11 +17,10 @@ Our work paves the way for more meaningful reconstruction bounds.
 ```python
 import mg
 
-alpha = 0.1
+alpha = 0.1 # miscoverage rate
 n_calib, n_test = 10000, 20
 n_recons = 50
 n_metrics = 5
-metric_names = ['Metric ' + str(i) for i in range(n_metrics)]
 calib_est_dim = (n_calib, n_recons, n_metrics)
 calib_gt_dim = (n_calib, n_metrics)
 test_est_dim = (n_test, n_recons, n_metrics)
