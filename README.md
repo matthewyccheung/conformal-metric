@@ -61,7 +61,7 @@ print('Avg LB Retrieval Error: ', lb_errs.mean(0))
 
 ## Running Example Code
 ```
-python main.py
+python example.py
 
 # Example Output:
 # 	Calibration Coverages:  [0.8977 0.9013 0.9014]
