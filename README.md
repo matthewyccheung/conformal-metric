@@ -1,6 +1,6 @@
 # Metric-guided Image Reconstruction Bounds via Conformal Prediction
 
-This repository contains source code and toy dataset for our [paper](https://arxiv.org). The implementation is self-contained in `mg.py`.
+This repository contains source code and toy dataset for our [paper](https://arxiv.org).
 
 The application of CP to image reconstruction has been relatively limited.
 This is a difficult problem because quantiles in higher dimensional data are M-quantiles, meaning they have infinite solutions and only have unique solutions when a direction is specified. How do we pick such a direction? The conventional (pixel-wise) method is to pick the direction where all pixels are independent. We argue that bounds should be computed in the direction of downstream metrics for more reliable downstream performance.
