@@ -60,11 +60,13 @@ print('Test Coverages: ', cb.coverages['ct'])
 python main.py
 
 # Example Output:
-# 	Calibration Coverages:  [1.   0.95 1.   0.95 1.  ]
-# 	Test Coverages:  [1.   0.95 1.   0.95 1.  ]
-# 	Avg UB Retrieval Error:  [-0.03242526 -0.03454599 -0.03510256 -0.0133658  -0.0123864 ]
-# 	Avg LB Retrieval Error:  [0.03126624 0.04189383 0.01757388 0.00095405 0.02172609]
+# 	Calibration Coverages:  [0.8992 0.9005 0.8948 0.9025 0.9036]
+# 	Test Coverages:  [1.   1.   0.9  0.95 1.  ]
+# 	Avg UB Retrieval Error:  [-0.02847479 -0.02737681 -0.03698551 -0.02770278 -0.01806076]
+# 	Avg LB Retrieval Error:  [0.03741338 0.04155937 0.01560019 0.03827184 0.02290202]
 ```
+
+![Example Output]('./example_output.png')
 
 ## Citation
 Cheung, Matt Y., et al. "Metric-guided Reconstruction Bounds at Test Time via Conformal Prediction." arXiv preprint arXiv: (2024).
