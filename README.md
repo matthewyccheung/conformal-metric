@@ -13,9 +13,10 @@ We propose a method that leverages conformal prediction to retrieve upper/lower 
 We apply our method to sparse-view CT for downstream radiotherapy planning and show 1) that metric-guided bounds have valid coverage for downstream metrics while conventional pixel-wise bounds do not and 2) anatomical differences of upper/lower bounds between metric-guided and pixel-wise methods.
 Our work paves the way for more meaningful reconstruction bounds.
 
-## Implement
+## Example Implementation
 ```python
-import mg
+from mg import MetricGuidance
+import numpy as np
 
 alpha = 0.1 # miscoverage rate
 n_calib, n_test = 10000, 20
@@ -52,6 +53,17 @@ Ct_lb, Ct_ub, test_calibrated_coverage = cb.predict(test)
 ub_recons, lb_recons = cb.retrieve_bounds(recons_test)
 ub_vals, lb_vals = cb.retrieve_bounds(test['est'])
 print('Test Coverages: ', cb.coverages['ct'])
+```
+
+## Running Example Code
+```
+python main.py
+
+# Example Output:
+# 	Calibration Coverages:  [1.   0.95 1.   0.95 1.  ]
+# 	Test Coverages:  [1.   0.95 1.   0.95 1.  ]
+# 	Avg UB Retrieval Error:  [-0.03242526 -0.03454599 -0.03510256 -0.0133658  -0.0123864 ]
+# 	Avg LB Retrieval Error:  [0.03126624 0.04189383 0.01757388 0.00095405 0.02172609]
 ```
 
 ## Citation
