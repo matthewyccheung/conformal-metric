@@ -247,5 +247,4 @@ class MetricGuidance:
 			- coverage: testing dataset coverage for each metric [0, 1]
 				- type: np.array of size (n_metrics, )
 		"""
-
 		return np.sum((gt >= lb) & (gt <= ub), axis=0)/gt.shape[0]

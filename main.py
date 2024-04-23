@@ -2,10 +2,10 @@ from mg import MetricGuidance
 import numpy as np
 import matplotlib.pyplot as plt
 
-alpha = 0.1
+alpha = 0.2
 n_calib, n_test = 10000, 20
 n_recons = 50
-n_metrics = 5
+n_metrics = 3
 metric_names = ['Metric ' + str(i) for i in range(n_metrics)]
 calib_est_dim = (n_calib, n_recons, n_metrics)
 calib_gt_dim = (n_calib, n_metrics)
@@ -45,19 +45,15 @@ print('Avg LB Retrieval Error: ', lb_errs.mean(0))
 
 # scatter plot upper and lower bounds for each scene and metric
 x_scatter = np.arange(test_gt.shape[0])
-if ub_vals.shape[2] != 1:
-	ub_scatter = np.diagonal(ub_vals, axis1=2)
-	lb_scatter = np.diagonal(lb_vals, axis1=2)
-else:
-	ub_scatter = ub_vals
-	lb_scatter = lb_vals
-fig, ax = plt.subplots(1, ub_vals.shape[1])
-for i in range(ub_vals.shape[1]):
-	if ub_vals.shape[1] != 1:
+ub_scatter = Ct_ub
+lb_scatter = Ct_lb
+fig, ax = plt.subplots(1, Ct_ub.shape[1])
+for i in range(Ct_ub.shape[1]):
+	if Ct_ub.shape[1] != 1:
 		ax[i].scatter(x_scatter, ub_scatter[..., i], label='Calibrated Upper Bound')
 		ax[i].scatter(x_scatter, lb_scatter[..., i], label='Calibrated Lower Bound')
 		ax[i].scatter(x_scatter, test_gt[..., i], label='Ground Truth')
-		ax[i].set_title(metric_names[i] + ' (Coverage = ' + str(np.round(cb.coverages['ct'][i], 2))+')')
+		ax[i].set_title(metric_names[i] + ' (Coverage = ' + str(np.round(cb.coverages['ct'][i], 3))+')')
 		ax[i].set_xlabel('Scene Number')
 		if i==0:
 			ax[i].set_ylabel('Value')
@@ -69,8 +65,9 @@ for i in range(ub_vals.shape[1]):
 		ax.set_xlabel('Scene Number')
 		ax.set_ylabel('Value')			
 
-if ub_vals.shape[1] != 1:
-	ax[int(ub_vals.shape[1]/2)].legend(loc='center', bbox_to_anchor=(0, -0.625, 0.5, 1.0), ncol=3)
+if Ct_ub.shape[1] != 1:
+	ax[int(Ct_ub.shape[1]/2)].legend(loc='center', bbox_to_anchor=(0, -0.625, 0.5, 1.0), ncol=3)
 else:
 	ax.legend()
 plt.show()
+
