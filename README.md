@@ -66,7 +66,7 @@ python main.py
 # 	Avg LB Retrieval Error:  [0.03741338 0.04155937 0.01560019 0.03827184 0.02290202]
 ```
 
-![Example Output]('./example_output.png')
+![Example Output](./example_output.png)
 
 ## Citation
 Cheung, Matt Y., et al. "Metric-guided Reconstruction Bounds at Test Time via Conformal Prediction." arXiv preprint arXiv: (2024).
