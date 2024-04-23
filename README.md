@@ -21,7 +21,7 @@ import numpy as np
 alpha = 0.1 # miscoverage rate
 n_calib, n_test = 10000, 20
 n_recons = 50
-n_metrics = 5
+n_metrics = 3
 calib_est_dim = (n_calib, n_recons, n_metrics)
 calib_gt_dim = (n_calib, n_metrics)
 test_est_dim = (n_test, n_recons, n_metrics)
@@ -64,10 +64,10 @@ print('Avg LB Retrieval Error: ', lb_errs.mean(0))
 python main.py
 
 # Example Output:
-# 	Calibration Coverages:  [0.8992 0.9005 0.8948 0.9025 0.9036]
-# 	Test Coverages:  [1.   1.   0.9  0.95 1.  ]
-# 	Avg UB Retrieval Error:  [-0.02847479 -0.02737681 -0.03698551 -0.02770278 -0.01806076]
-# 	Avg LB Retrieval Error:  [0.03741338 0.04155937 0.01560019 0.03827184 0.02290202]
+# 	Calibration Coverages:  [0.8977 0.9013 0.9014]
+# 	Test Coverages:  [1.  0.9 1. ]
+# 	Avg UB Retrieval Error:  [-0.05486483 -0.00920602 -0.04949187]
+# 	Avg LB Retrieval Error:  [0.03186384 0.02340578 0.00339853]
 ```
 
 ![Example Output](./example_output.png)
