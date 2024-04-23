@@ -52,7 +52,11 @@ Cc_ub, Cc_lb, calib_calibrated_coverage = cb.fit(calib)
 Ct_lb, Ct_ub, test_calibrated_coverage = cb.predict(test)
 ub_recons, lb_recons = cb.retrieve_bounds(recons_test)
 ub_vals, lb_vals = cb.retrieve_bounds(test['est'])
+ub_errs, lb_errs = cb.bound_errors(ub_vals, lb_vals)
+print('Calibration Coverages: ', cb.coverages['cc'])
 print('Test Coverages: ', cb.coverages['ct'])
+print('Avg UB Retrieval Error: ', ub_errs.mean(0))
+print('Avg LB Retrieval Error: ', lb_errs.mean(0))
 ```
 
 ## Running Example Code
