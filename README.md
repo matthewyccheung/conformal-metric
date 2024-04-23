@@ -46,10 +46,6 @@ test_gt = np.random.normal(mu_test_gt, sigma_test_gt, test_gt_dim)
 calib = {'est': calib_est, 'gt': calib_gt}
 test = {'est': test_est, 'gt': test_gt}
 
-# store metrics in dict
-calib = {'est': calib_est, 'gt': calib_gt}
-test = {'est': test_est, 'gt': test_gt}
-
 # calibrate and test
 cb = MetricGuidance(alpha=0.1)
 Cc_ub, Cc_lb, calib_calibrated_coverage = cb.fit(calib)
