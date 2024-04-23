@@ -17,7 +17,34 @@ Our work paves the way for more meaningful reconstruction bounds.
 ```python
 import mg
 
-...
+alpha = 0.1
+n_calib, n_test = 10000, 20
+n_recons = 50
+n_metrics = 5
+metric_names = ['Metric ' + str(i) for i in range(n_metrics)]
+calib_est_dim = (n_calib, n_recons, n_metrics)
+calib_gt_dim = (n_calib, n_metrics)
+test_est_dim = (n_test, n_recons, n_metrics)
+test_gt_dim = (n_test, n_metrics)
+
+# generate reconstructions corresponding to each test scene
+# toy example
+recons_test = np.random.rand(n_test, n_recons, 256, 256)
+
+# get downstream metrics corresponding to each reconstruction
+# toy example
+mu_calib_est, sigma_calib_est = 0.1, 1.2
+mu_calib_gt, sigma_calib_gt = 0.5, 1.6
+mu_test_est, sigma_test_est = 0.3, 1.5
+mu_test_gt, sigma_test_gt = 0.4, 1.2
+calib_est = np.random.normal(mu_calib_est, sigma_calib_est, calib_est_dim)
+calib_gt = np.random.normal(mu_calib_gt, sigma_calib_gt, calib_gt_dim)
+test_est = np.random.normal(mu_test_est, sigma_test_est, test_est_dim)
+test_gt = np.random.normal(mu_test_gt, sigma_test_gt, test_gt_dim)
+
+# store metrics in dict
+calib = {'est': calib_est, 'gt': calib_gt}
+test = {'est': test_est, 'gt': test_gt}
 
 # store metrics in dict
 calib = {'est': calib_est, 'gt': calib_gt}
