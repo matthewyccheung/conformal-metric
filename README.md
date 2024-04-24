@@ -1,6 +1,6 @@
 # Metric-guided Image Reconstruction Bounds via Conformal Prediction
 
-This repository contains source code for our [paper](https://arxiv.org).
+This repository contains source code for our [paper](https://arxiv.org/abs/2404.15274).
 
 The application of CP to image reconstruction has been relatively limited.
 This is a difficult problem because quantiles in higher dimensional data are M-quantiles, meaning they have infinite solutions and only have unique solutions when a direction is specified. How do we pick such a direction? The conventional (pixel-wise) method is to pick the direction where all pixels are independent. We argue that bounds should be computed in the direction of downstream metrics for more reliable downstream performance.
@@ -73,4 +73,13 @@ python example.py
 ![Example Output](./example_output.png)
 
 ## Citation
-Cheung, Matt Y., et al. "Metric-guided Reconstruction Bounds at Test Time via Conformal Prediction." arXiv preprint arXiv: (2024).
+```
+@misc{cheung2024metricguided,
+      title={Metric-guided Image Reconstruction Bounds via Conformal Prediction}, 
+      author={Matt Y Cheung and Tucker J Netherton and Laurence E Court and Ashok Veeraraghavan and Guha Balakrishnan},
+      year={2024},
+      eprint={2404.15274},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
