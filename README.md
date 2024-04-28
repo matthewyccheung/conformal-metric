@@ -71,12 +71,10 @@ python example.py
 
 ## Citation
 ```
-@misc{cheung2024metricguided,
-      title={Metric-guided Image Reconstruction Bounds via Conformal Prediction}, 
-      author={Matt Y Cheung and Tucker J Netherton and Laurence E Court and Ashok Veeraraghavan and Guha Balakrishnan},
-      year={2024},
-      eprint={2404.15274},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@article{cheung2024metric,
+  title={Metric-guided Image Reconstruction Bounds via Conformal Prediction},
+  author={Cheung, Matt Y and Netherton, Tucker J and Court, Laurence E and Veeraraghavan, Ashok and Balakrishnan, Guha},
+  journal={arXiv preprint arXiv:2404.15274},
+  year={2024}
 }
 ```
