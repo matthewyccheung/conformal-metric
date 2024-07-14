@@ -3,152 +3,164 @@ import matplotlib.pyplot as plt
 import pdb
 import pandas as pd
 
-class MetricGuidance:
-
+class MetricGuidedCalibration:
 	"""
-		Implements a discrete version of Conformalized Quantile Regression (CQR) [1]
-		using sample quantiles instead of regression quantiles. Allows calibration
-		for multiple metrics simultaneously. See our paper for more information.
+		Description
+		----------
+		Implements metric-guided calibration from our paper: Cheung, Matt Y., et al. "Metric-guided Image Reconstruction Bounds via Conformal Prediction." arXiv preprint arXiv:2404.15274 (2024).https://arxiv.org/abs/2404.15274
+		See our paper for more information.
 
 		Usage:
 		----------
-		cb = MetricGuidance(alpha=0.1)
-		cb.fit(calib)
-		cb.predict(test)
-		print(cb.coverages)	
-
-		Notes:
-		----------
-		- Adjusted level of confidence: alpha_adj = np.ceil((n_calib+1)*(1-alpha))/n_calib 
-			should not be > 1
-
-		References:
-		---------
-		[1] Romano, Yaniv, Evan Patterson, and Emmanuel Candes. 
-			"Conformalized quantile regression." 
-			Advances in neural information processing systems 32 (2019).
+        cb = MetricGuidedCalibration(alpha=alpha, method=method)
+		cc_lb, cc_ub, cc_coverages = cb.fit(c_ys, c_yhats)
+		ct_lb, ct_ub, ct_coverages = cb.validate(t_ys, t_yhats)
+		n_metrics_each_sample, n_sample_all_metrics, inlier_bool, outlier_bool = cb.retrieve_in_out(t_yhats)
+		lb_vals, ub_vals = cb.retrieve_bounds(t_yhats)
+		lengths = cb.interval_lengths(ct_lb, ct_ub)
+		retreived_lengths = cb.retrieval_lengths(lb_vals, ub_vals)
+		ub_errs, lb_errs = cb.bound_errors(lb_vals, ub_vals)
 	"""
 	
-	def __init__(self, alpha):
-		
+	def __init__(self, alpha, method):
 		"""
+			Description
+			----------
+			
+
 			Parameters
 			----------
-			- alpha: level of confidence in range [0, 1]
-				- type: float
+			- alpha (float): miscoverage rate [0, 1]
+			- method (string): CQR method ['asymCQR', 'CQR', 'CQRub', 'CQRlb']
+
+			Notes
+			----------
+			- Adjusted level of confidence: alpha_adj = np.ceil((n_c+1)*(1-alpha))/n_c should not be > 1
+			- asymCQR: implements CQR with asymmetric adjustments
+            - CQR: implements vanilla CQR from [1]
+            - CQRub: implements CQR with only the 1st term as confomity score 
+						Q_{\alpha/2}(\hat Y^{n+1})-Y^{n+1}
+            - CQRlb: implements CQR with only 2nd term as conformity score
+						Y^{n+1} - Q_{1-\alpha/2}(\hat Y^{n+1})
 		"""
 		
 		self.alpha = alpha # level of confidence
+		self.method = method
 		self.bounds = {}
 		self.coverages = {}
 
-	def fit(self, calib):
+	def fit(self, y, yhat):
 		
 		"""
+			Description
+			----------
+			Calibrates model according to data provided in yhat (estimates) and yhat, and method. Saves quantile adjustments as q or (q_lb, q_ub) corresponding to asymmetric adjustments.
+	
 			Parameters
 			----------
-			- calib: contains estimated (est) and ground truth (gt)
-					 metric(s) for calibration dataset
-				- type: dict with keys 'est' and 'gt'
-				
-				- calib['est']: estimated metrics
-					- type: np.array of size (n_scenes, n_recons, n_metrics)
-				- calib['gt']:  ground truth metrics
-					- type: np.array of size (n_scenes, n_metrics)
+			- yhat (np.array, size=(n_scenes, n_recons, n_metrics)): contains estimated metric(s)
+			- y (np.array, size=(n_scenes, n_metrics)):  ground truth metrics
 
 			Returns
 			----------
-			- Cc_lb: calibration dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
-			- Cc_ub: calibration dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
-			- calib_calibrated_coverage: calibration dataset coverage [0, 1]
-				- type: float
+			- Cc_lb (np.array, size=(n_scenes, n_metrics)): calibration data adjusted lower bounds
+			- Cc_ub (np.array, size=(n_scenes, n_metrics)): calibration data adjusted upperbounds
+			- cc_coverage (float): calibrated coverage on calibration dataset [0, 1]
 		"""
 
-		self.calib = calib
-		self.n_calib = calib['est'].shape[0]
-		self.adj_alpha = np.ceil((self.n_calib+1)*(1-self.alpha))/self.n_calib
+		self.n_c = yhat.shape[0]
+		self.adj_alpha = np.ceil((self.n_c+1)*(1-self.alpha))/self.n_c
 		# calibrate
-		calib_lb = np.quantile(calib['est'], q=self.alpha/2, axis=1)
-		calib_ub = np.quantile(calib['est'], q=1-self.alpha/2, axis=1)
-		scores = (np.maximum(calib_lb - calib['gt'], calib['gt'] - calib_ub)).flatten()
-		self.q = np.quantile(scores, self.adj_alpha, method='higher')
-		# get prediction set
-		Cc_lb, Cc_ub = calib_lb - self.q, calib_ub + self.q
-		# compute coverage	
-		calib_calibrated_coverage = self._coverage(Cc_lb, Cc_ub, calib['gt'])
-		# save data
-		self.bounds['cc_ub'] = Cc_ub
-		self.bounds['cc_lb'] = Cc_lb
-		self.coverages['cc'] = calib_calibrated_coverage
-		return Cc_ub, Cc_lb, calib_calibrated_coverage
+		yhat_lb = np.quantile(yhat, q=self.alpha/2, axis=1)
+		yhat_ub = np.quantile(yhat, q=1-self.alpha/2, axis=1)
+		if self.method=='CQR':
+			scores = np.maximum(yhat_lb-y, y-yhat_ub)
+			self.q = np.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQRlb':
+			scores = yhat_lb-y
+			self.q = np.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQRub':
+			scores = y-yhat_ub
+			self.q = np.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQR-m':
+			yhat_med = np.median(yhat, axis=1)
+			scores = np.maximum((yhat_lb-y)/(yhat_med-yhat_lb),(y-yhat_ub)/(yhat_ub-yhat_med))
+			self.q = np.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQR-r':
+			scores = (np.maximum((yhat_lb-y)/(yhat_ub-yhat_lb),(y-yhat_ub)/(yhat_ub-yhat_lb)))
+			self.q = np.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='asymCQR':
+			scores_lb = yhat_lb-y
+			scores_ub = y-yhat_ub
+			self.adj_alpha = np.ceil((self.n_c+1)*(1-self.alpha/2))/self.n_c
+			self.q_lb = np.quantile(scores_lb, self.adj_alpha, interpolation='higher', axis=0)
+			self.q_ub = np.quantile(scores_ub, self.adj_alpha, interpolation='higher', axis=0)
 
-	def predict(self, test):
+		cc_lb, cc_ub, cc_coverages = self.validate(y, yhat)
+		self.coverages['cc'] = cc_coverages
+		return cc_lb, cc_ub, cc_coverages
+
+	def validate(self, y, yhat):
 
 		"""
+			Description
+			----------
+			Validates model according to data provided in yhat (estimates) and yhat, and method. 
+    
+            Parameters
+            ----------
+            - yhat (np.array, size=(n_scenes, n_recons, n_metrics)): contains estimated metric(s)
+            - y (np.array, size=(n_scenes, n_metrics)):  ground truth metrics		
 			Parameters
 			----------
-			- test: contains estimated (est) and ground truth (gt)
-					 metric(s) for testing dataset
-				- type: dict with keys 'est' and 'gt'
-				
-				- test['est']: estimated metrics
-					- type: np.array of size (n_scenes, n_recons, n_metrics)
-				- test['gt']: ground truth metrics
-					- type: np.array of size (n_scenes, n_metrics)
+			- yhat (np.array, size=(n_scenes, n_recons, n_metrics)): contains estimated metric(s)
+            - y (np.array, size=(n_scenes, n_metrics)):  ground truth metrics
 
 			Returns
 			----------
-			- Ct_lb: testing dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
-			- Ct_ub: testing dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
-			- test_calibrated_coverage: testing dataset coverage [0, 1]
-				- type: np.array of size (n_metrics, )
+			- ct_lb (np.array, size=(n_scenes, n_metrics)): testing data adjusted upper bound
+			- ct_ub (np.array, size (n_metrics, )): testing data adjusted lower bound
+			- ct_coverage (float): calibrated coverage on calibration dataset [0, 1]
 		"""
 		
-		self.test = test
-		test_lb = np.quantile(test['est'], q=self.alpha/2, axis=1)
-		test_ub = np.quantile(test['est'], q=1-self.alpha/2, axis=1)
-		Ct_lb, Ct_ub = test_lb - self.q, test_ub + self.q
-		self.bounds['ct_ub'] = Ct_ub
-		self.bounds['ct_lb'] = Ct_lb
-		if 'gt' in test.keys():
-			test_calibrated_coverage = self._coverage(Ct_lb, Ct_ub, test['gt'])
-			self.coverages['ct'] = test_calibrated_coverage
-		else:
-			test_calibrated_coverage = None
-		return Ct_lb, Ct_ub, test_calibrated_coverage
+		yhat_lb = np.quantile(yhat, q=self.alpha/2, axis=1)
+		yhat_ub = np.quantile(yhat, q=1-self.alpha/2, axis=1)
+		if (self.method=='CQR')|(self.method=='CQRub')|(self.method=='CQRlb'):
+			self.q_lb = self.q
+			self.q_ub = self.q
+		elif self.method=='CQR-m':
+			yhat_med = np.median(yhat, axis=1)
+			self.q_lb = self.q*(yhat_med-yhat_lb)
+			self.q_ub = self.q*(yhat_ub-yhat_med)
+		elif self.method=='CQR-r':
+			test_med = np.median(yhat, axis=1)
+			self.q_lb = self.q*(yhat_ub-yhat_lb)
+			self.q_ub = self.q_lb
+		elif self.method=='asymCQR':
+			pass
+		ct_lb, ct_ub = yhat_lb-self.q_lb, yhat_ub+self.q_ub
+		self.bounds['ct_ub'] = ct_ub
+		self.bounds['ct_lb'] = ct_lb
+		ct_coverages = self._coverage(ct_lb, ct_ub, y)
+		self.coverages['ct'] = ct_coverages
+		return ct_lb, ct_ub, ct_coverages
 
 	def retrieve_bounds(self, x):
 
 		"""
-			Retrieves reconstructions and indices from upper and lower bounds
+			Description
+			----------
+			Retrieves reconstructions and indices based on calibrated upper and lower bounds
 
 			Parameters
 			----------
-			- x: input tensor containing reconstructions or metrics
-				- type: 
-					if reconstruction:
-						np.array of size (n_scenes, n_recons, images)
-						or np.array of size (n_scenes, n_recons, n_metrics)
+			- x (np.array, size=(n_scenes, n_recons, n_pixels) for reconstructions or (n_scenes, n_recons, n_metrics) for metrics): input tensor containing reconstructions or metrics you want to retrieve closest upper and lower bounds of.
 			
 			Returns
 			----------
-			- ub: upper bound reconstructions or metrics
-				- type: 
-					if reconstruction:
-						np.array of size (n_scenes, n_metrics, dim_1, ..., dim_n)
-					if metrics:
-						np.array of size (n_scenes, n_metrics, n_metrics)
-			- lb: lower bound reconstructions or metrics
-				- type: 
-					if reconstruction:
-						np.array of size (n_scenes, n_metrics, dim_1, ..., dim_n)
-					if metrics:
-						np.array of size (n_scenes, n_metrics, n_metrics)
-			
+			- ub (np.array, size=(n_scenes, n_metrics, dim_1, ..., dim_n) for reconstructions or size=(n_scenes, n_metrics, n_metrics) for metrics): upper bound reconstructions or metrics
+			- lb(np.array, size=(n_scenes, n_metrics, dim_1, ..., dim_n) for reconstructions or size=(n_scenes, n_metrics, n_metrics) for metrics): lower bound reconstructions or metrics
+		
 			Notes
 			----------
 			- If reconstructions are of size 256x256 will be of size 
@@ -158,8 +170,8 @@ class MetricGuidance:
 				upper/lower bound of that metric
 		"""
 
-		self.ub_idxs = self._get_argmin_idxs(self.bounds['ct_ub'])
-		self.lb_idxs = self._get_argmin_idxs(self.bounds['ct_lb'])
+		self.ub_idxs = self._get_argmin_idxs(self.bounds['ct_ub'], x)
+		self.lb_idxs = self._get_argmin_idxs(self.bounds['ct_lb'], x)
 		ubs = np.array([])
 		lbs = np.array([])
 		# loop through each ub and lb index and stack
@@ -175,76 +187,93 @@ class MetricGuidance:
 			lb_r = lb_r[np.newaxis, ...]
 			ubs = np.vstack((ubs, ub_r)) if len(ubs) else ub_r
 			lbs = np.vstack((lbs, lb_r)) if len(lbs) else lb_r
-		return ubs, lbs
+		return lbs, ubs
 
-	def bound_errors(self, ub_vals, lb_vals):
+	def retrieve_in_out(self, x):
 		"""
-			Computes retrieval error, defined as (closest estimate - B)/(UB - LB)
+			Description
+			----------
+			Determine 1) how many metrics each sample's metrics are contained within the calibrated bounds and 2) how many samples' metrics are contained within all calibration bounds
 			
-			Usage
-			---------
-			ub_vals, lb_vals = cb.retrieve_bounds(test['est'])
-			ub_errs, lb_errs = bound_errors(ub_vals, lb_vals)
+			Parameters
+			----------
+			- x (np.array, size=(n_scenes, n_recons, n_pixels) for reconstructions or (n_scenes, n_recons, n_metrics) for metrics): input tensor containing reconstructions or metrics you want to retrieve closest upper and lower bounds of.
+		
+		    Returns
+            ----------
+			- n_metrics_each_samples (np.array[int], size=(n_scenes, n_recons, 1)): how many metrics each sample's metrics are contained within the calibrated bounds
+			- n_sample_all_metrics (np.array[bool], size=(n_scenes, n_recons, 1))
+			- inlier_bool (np.array[float], size=(n_scenes, n_recons, n_metrics)): boolean array showing whether each sample in each scene have metrics contained within the calibrated bounds
+			- outlier_bool (np.array[float], size=(n_scenes, n_recons, n_metrics)):boolean array showing whether each sample in each scene have one or more metrics not contained within the calibrated bounds
+		"""
+
+		# determine whether estimates lie in bounds
+		inlier_bool = (x<np.tile(np.expand_dims(self.bounds['ct_ub'],axis=1),(1,x.shape[1],1)))&(x>np.tile(np.expand_dims(self.bounds['ct_lb'], axis=1), (1,x.shape[1],1)))
+		outlier_bool = ~inlier_bool
+		# how many metrics each sample meets
+		n_metrics_each_sample = inlier_bool.sum(0)
+		# how many samples meet all requirements
+		n_sample_all_metrics = inlier_bool.sum(1)
+		return n_metrics_each_sample, n_sample_all_metrics, inlier_bool, outlier_bool
+
+	def bound_errors(self, lb_vals, ub_vals):
+		"""
+			Description
+			----------
+			Computes retrieval error, defined as (closest estimate - B)/(UB - LB)
 		
 			Parameters
-			---------
-            - ub: upper bound metrics
-                - type: 
-                    np.array of size (n_scenes, n_metrics, n_metrics)
-            - lb: lower bound metrics
-                - type: 
-                    np.array of size (n_scenes, n_metrics, n_metrics)
+			----------
+            - ub_vals (np.array, size=(n_scenes, n_metrics, n_metrics)): metrics from samples with closest estimate to calibrated upper bound
+            - lb_vals (np.array, size=(n_scenes, n_metrics, n_metrics)): metrics from samples with closest estimate to calibrated lower bound
 
 			Returns
-			---------
-			- ub: upper bound retrieval errors
-                - type: 
-                    np.array of size (n_scenes, n_metrics)
-            - lb: lower bound retrieval errors
-                - type: 
-                    np.array of size (n_scenes, n_metrics)
+			----------
+			- ub_errs (np.array, size=(n_scenes, n_metrics)): upper bound retrieval errors
+            - lb_errs (np.array, size=(n_scenes, n_metrics)): lower bound retrieval errors
 		"""
+
 		return (np.diagonal(ub_vals, axis1=2) - self.bounds['ct_ub'])/(self.bounds['ct_ub'] - self.bounds['ct_lb']), (np.diagonal(lb_vals, axis1=2) - self.bounds['ct_lb'])/(self.bounds['ct_ub'] - self.bounds['ct_lb'])
 
-	def lengths(self, ub_vals, lb_vals):
-		"""
-			Computes prediction interval lengths for each metric and scene
+	def interval_lengths(self, lb, ub):
+		return ub-lb
 
-			Usage
+	def retrieval_lengths(self, lb_vals, ub_vals):
+		"""
+			Description
 			----------
-    		ub_vals, lb_vals = cb.retrieve_bounds(test['est'])
-			pi_lengths = lengths(ub_vals, lb_vals)
+			Computes prediction interval lengths for each metric and scene
 			
 			Parameters
 			----------
-            - ub_vals: upper bound metrics
-                - type: np.array of size (n_scenes, n_metrics, n_metrics)
-            - lb_vals: lower bound metrics
-                - type: np.array of size (n_scenes, n_metrics, n_metrics)
+            - ub_vals (np.array, size=(n_scenes, n_metrics, n_metrics)): upper bound metrics
+            - lb_vals (np.array, size=(n_scenes, n_metrics, n_metrics)): lower bound metrics
 
 			Returns
 			----------
-			- prediction intervals lengths
-				- type: np.array(n_scenes, n_metrics)
+			- prediction intervals lengths (np.array(n_scenes, n_metrics))
 		"""
 		return np.diagonal(ub_vals, axis1=2) - np.diagonal(lb_vals, axis1=2)
 
-	def _get_argmin_idxs(self, bounds):
-		return np.argmin(abs(self.test['est']-np.tile(np.expand_dims(bounds, axis=1), (1, self.test['est'].shape[1], 1))), axis=1)
+	def _get_argmin_idxs(self, bounds, yhat):
+		# internal function
+		return np.argmin(abs(yhat-np.tile(np.expand_dims(bounds, axis=1), (1, yhat.shape[1], 1))), axis=1)
 
 	def _coverage(self, lb, ub, gt):
 		
 		"""
+			Description
+			----------
+			Computes coverage defined by % of time lb<=gt<=ub where lb and ub are calibrated upper and lower bounds and gt is the ground truth metrics
+
 			Parameters
 			----------
-			- lb: testing dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
-			- ub: testing dataset upper bound
-				- type: np.array of size (n_scenes, n_metrics)
+			- lb (np.array, size=(n_scenes, n_metrics)): testing dataset calibrated lower bound
+			- ub (np.array, size=(n_scenes, n_metrics)): testing dataset calibrated upper bound
+			- gt (np.array, size=(n_scenes, n_metrics)): testing dataset ground truth values
 			
 			Returns
 			---------
-			- coverage: testing dataset coverage for each metric [0, 1]
-				- type: np.array of size (n_metrics, )
+			- coverage (np.array, size=(n_metrics, )): testing dataset coverage for each metric [0, 1]
 		"""
 		return np.sum((gt >= lb) & (gt <= ub), axis=0)/gt.shape[0]

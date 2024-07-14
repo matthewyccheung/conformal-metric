@@ -1,16 +1,17 @@
-from mg import MetricGuidance
+from mg import MetricGuidedCalibration
 import numpy as np
 import matplotlib.pyplot as plt
 
 alpha = 0.2
+method = 'CQR'
 n_calib, n_test = 10000, 20
 n_recons = 50
 n_metrics = 3
 metric_names = ['Metric ' + str(i) for i in range(n_metrics)]
-calib_est_dim = (n_calib, n_recons, n_metrics)
-calib_gt_dim = (n_calib, n_metrics)
-test_est_dim = (n_test, n_recons, n_metrics)
-test_gt_dim = (n_test, n_metrics)
+c_yhats_dim = (n_calib, n_recons, n_metrics)
+c_ys_dim = (n_calib, n_metrics)
+t_yhats_dim = (n_test, n_recons, n_metrics)
+t_ys_dim = (n_test, n_metrics)
 
 # generate reconstructions corresponding to each test scene
 # toy example
@@ -18,41 +19,35 @@ recons_test = np.random.rand(n_test, n_recons, 256, 256)
 
 # get downstream metrics corresponding to each reconstruction
 # toy example
-mu_calib_est, sigma_calib_est = 0.1, 1.2
-mu_calib_gt, sigma_calib_gt = 0.5, 1.6
-mu_test_est, sigma_test_est = 0.3, 1.5
-mu_test_gt, sigma_test_gt = 0.4, 1.2
-calib_est = np.random.normal(mu_calib_est, sigma_calib_est, calib_est_dim)
-calib_gt = np.random.normal(mu_calib_gt, sigma_calib_gt, calib_gt_dim)
-test_est = np.random.normal(mu_test_est, sigma_test_est, test_est_dim)
-test_gt = np.random.normal(mu_test_gt, sigma_test_gt, test_gt_dim)
-
-# store metrics in dict
-calib = {'est': calib_est, 'gt': calib_gt}
-test = {'est': test_est, 'gt': test_gt}
+c_yhats = np.random.normal(0.1, 1.2, c_yhats_dim)
+c_ys = np.random.normal(0.5, 1.6, c_ys_dim)
+t_yhats = np.random.normal(0.3, 1.5, t_yhats_dim)
+t_ys = np.random.normal(0.4, 1.2, t_ys_dim)
 
 # calibrate and test
-cb = MetricGuidance(alpha=0.1)
-Cc_ub, Cc_lb, calib_calibrated_coverage = cb.fit(calib)
-Ct_lb, Ct_ub, test_calibrated_coverage = cb.predict(test)
-ub_recons, lb_recons = cb.retrieve_bounds(recons_test)
-ub_vals, lb_vals = cb.retrieve_bounds(test['est'])
-ub_errs, lb_errs = cb.bound_errors(ub_vals, lb_vals)
-print('Calibration Coverages: ', cb.coverages['cc'])
-print('Test Coverages: ', cb.coverages['ct'])
+cb = MetricGuidedCalibration(alpha=alpha, method=method)
+cc_lb, cc_ub, cc_coverages = cb.fit(c_ys, c_yhats)
+ct_lb, ct_ub, ct_coverages = cb.validate(t_ys, t_yhats)
+n_metrics_each_sample, n_sample_all_metrics, inlier_bool, outlier_bool = cb.retrieve_in_out(t_yhats)
+lb_vals, ub_vals = cb.retrieve_bounds(t_yhats)
+lengths = cb.interval_lengths(ct_lb, ct_ub)
+retreived_lengths = cb.retrieval_lengths(lb_vals, ub_vals)
+ub_errs, lb_errs = cb.bound_errors(lb_vals, ub_vals)
+print('Calibration Coverages: ', cc_coverages)
+print('Test Coverages: ', ct_coverages)
 print('Avg UB Retrieval Error: ', ub_errs.mean(0))
 print('Avg LB Retrieval Error: ', lb_errs.mean(0))
 
 # scatter plot upper and lower bounds for each scene and metric
-x_scatter = np.arange(test_gt.shape[0])
-ub_scatter = Ct_ub
-lb_scatter = Ct_lb
-fig, ax = plt.subplots(1, Ct_ub.shape[1])
-for i in range(Ct_ub.shape[1]):
-	if Ct_ub.shape[1] != 1:
+x_scatter = np.arange(t_ys.shape[0])
+ub_scatter = ct_ub
+lb_scatter = ct_lb
+fig, ax = plt.subplots(1, ct_ub.shape[1])
+for i in range(ct_ub.shape[1]):
+	if ct_ub.shape[1] != 1:
 		ax[i].scatter(x_scatter, ub_scatter[..., i], label='Calibrated Upper Bound')
 		ax[i].scatter(x_scatter, lb_scatter[..., i], label='Calibrated Lower Bound')
-		ax[i].scatter(x_scatter, test_gt[..., i], label='Ground Truth')
+		ax[i].scatter(x_scatter, t_ys[..., i], label='Ground Truth')
 		ax[i].set_title(metric_names[i] + ' (Coverage = ' + str(np.round(cb.coverages['ct'][i], 3))+')')
 		ax[i].set_xlabel('Scene Number')
 		if i==0:
@@ -65,8 +60,8 @@ for i in range(Ct_ub.shape[1]):
 		ax.set_xlabel('Scene Number')
 		ax.set_ylabel('Value')			
 
-if Ct_ub.shape[1] != 1:
-	ax[int(Ct_ub.shape[1]/2)].legend(loc='center', bbox_to_anchor=(0, -0.625, 0.5, 1.0), ncol=3)
+if ct_ub.shape[1] != 1:
+	ax[int(ct_ub.shape[1]/2)].legend(loc='center', bbox_to_anchor=(0, -0.625, 0.5, 1.0), ncol=3)
 else:
 	ax.legend()
 plt.show()
