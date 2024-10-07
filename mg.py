@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pdb
 import pandas as pd
+import torch
+from math import ceil
 
 class MetricGuidedCalibration:
 	"""
@@ -277,3 +279,111 @@ class MetricGuidedCalibration:
 			- coverage (np.array, size=(n_metrics, )): testing dataset coverage for each metric [0, 1]
 		"""
 		return np.sum((gt >= lb) & (gt <= ub), axis=0)/gt.shape[0]
+
+class DiffCQR:
+	def __init__(self, alpha, method):	
+		self.alpha = alpha # level of confidence
+		self.method = method
+		self.bounds = {}
+		self.coverages = {}
+
+	def fit(self, y, yhat):
+		self.n_c = yhat.shape[0]
+		self.adj_alpha = np.ceil((self.n_c+1)*(1-self.alpha))/self.n_c
+		# calibrate
+		yhat_lb = torch.quantile(yhat, q=self.alpha/2, axis=1)
+		yhat_ub = torch.quantile(yhat, q=1-self.alpha/2, axis=1)
+		if self.method=='CQR':
+			scores = torch.maximum(yhat_lb-y, y-yhat_ub)
+			self.q = torch.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQRlb':
+			scores = yhat_lb-y
+			self.q = torch.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQRub':
+			scores = y-yhat_ub
+			self.q = torch.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQR-m':
+			yhat_med = torch.median(yhat, axis=1).values
+			scores = torch.maximum((yhat_lb-y)/(yhat_med-yhat_lb),(y-yhat_ub)/(yhat_ub-yhat_med))
+			self.q = torch.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='CQR-r':
+			scores = (torch.maximum((yhat_lb-y)/(yhat_ub-yhat_lb),(y-yhat_ub)/(yhat_ub-yhat_lb)))
+			self.q = torch.quantile(scores, self.adj_alpha, interpolation='higher', axis=0)
+		elif self.method=='asymCQR':
+			scores_lb = yhat_lb-y
+			scores_ub = y-yhat_ub
+			self.adj_alpha = np.ceil((self.n_c+1)*(1-self.alpha/2))/self.n_c
+			self.q_lb = torch.quantile(scores_lb, self.adj_alpha, interpolation='higher', axis=0)
+			self.q_ub = torch.quantile(scores_ub, self.adj_alpha, interpolation='higher', axis=0)
+
+		cc_lb, cc_ub, cc_coverages = self.validate(y, yhat)
+		self.coverages['cc'] = cc_coverages
+		return cc_lb, cc_ub, cc_coverages
+
+	def validate(self, y, yhat):	
+		yhat_lb = torch.quantile(yhat, q=self.alpha/2, axis=1)
+		yhat_ub = torch.quantile(yhat, q=1-self.alpha/2, axis=1)
+		if (self.method=='CQR')|(self.method=='CQRub')|(self.method=='CQRlb'):
+			self.q_lb = self.q
+			self.q_ub = self.q
+		elif self.method=='CQR-m':
+			yhat_med = torch.median(yhat, axis=1).values
+			self.q_lb = self.q*(yhat_med-yhat_lb)
+			self.q_ub = self.q*(yhat_ub-yhat_med)
+		elif self.method=='CQR-r':
+			test_med = torch.median(yhat, axis=1).values
+			self.q_lb = self.q*(yhat_ub-yhat_lb)
+			self.q_ub = self.q_lb
+		elif self.method=='asymCQR':
+			pass
+		ct_lb, ct_ub = yhat_lb-self.q_lb, yhat_ub+self.q_ub
+		self.bounds['ct_ub'] = ct_ub
+		self.bounds['ct_lb'] = ct_lb
+		ct_coverages = self._coverage(ct_lb, ct_ub, y)
+		self.coverages['ct'] = ct_coverages
+		return ct_lb, ct_ub, ct_coverages
+
+	def interval_lengths(self, lb, ub):
+		return ub-lb
+
+	def _coverage(self, lb, ub, gt):
+		return torch.sum((gt >= lb) & (gt <= ub), axis=0)/gt.shape[0]
+
+class DiffL1:
+    def __init__(self, alpha, method):
+        self.alpha = alpha # level of confidence
+        self.method = method
+        self.bounds = {}
+        self.coverages = {}
+
+    def fit(self, y, yhat):
+        self.n_c = len(yhat)
+        scores = abs(y-yhat)
+        scores_lb = yhat-y
+        scores_ub = y-yhat
+        if self.method == 'sym':
+            self.adj_alpha = ceil((self.n_c+1)*(1-self.alpha))/self.n_c
+            q = torch.quantile(scores, self.adj_alpha, interpolation='higher')
+            self.q_lb = q
+            self.q_ub = q
+        elif self.method == 'asym':
+            self.adj_alpha = ceil((self.n_c+1)*(1-self.alpha/2))/self.n_c
+            self.q_lb = torch.quantile(scores_lb, self.adj_alpha, interpolation='higher')
+            self.q_ub = torch.quantile(scores_ub, self.adj_alpha, interpolation='higher')
+        cc_lb, cc_ub, cc_coverages = self.validate(y, yhat)
+        self.coverages['cc'] = cc_coverages
+        return cc_lb, cc_ub, cc_coverages
+
+    def validate(self, y, yhat):
+        ct_lb, ct_ub = yhat-self.q_lb, yhat+self.q_ub
+        self.bounds['ct_ub'] = ct_ub
+        self.bounds['ct_lb'] = ct_lb
+        ct_coverages = self._coverage(ct_lb, ct_ub, y)
+        self.coverages['ct'] = ct_coverages
+        return ct_lb, ct_ub, ct_coverages
+
+    def interval_lengths(self, lb, ub):
+        return ub-lb
+
+    def _coverage(self, lb, ub, gt):
+        return ((gt>=lb)&(gt<=ub)).sum()/len(gt)
