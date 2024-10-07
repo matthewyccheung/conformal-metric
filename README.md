@@ -2,7 +2,7 @@
 
 ## Papers:
 1. [Regression Conformal Prediction under Bias](https://arxiv.org)
-2. Metric-guided Image Reconstruction Bounds via Conformal Prediction](https://arxiv.org/abs/2404.15274)
+2. [Metric-guided Image Reconstruction Bounds via Conformal Prediction](https://arxiv.org/abs/2404.15274)
 
 ## Code-base Implementations
 1. Differentiable conformal predictors for minimizing **bias** (see `bias`)
@@ -10,7 +10,6 @@
 
 ## Please consider citing:
 ```
-
 
 @article{cheung2024metric,
   title={Metric-guided Image Reconstruction Bounds via Conformal Prediction},
