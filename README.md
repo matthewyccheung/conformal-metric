@@ -1,7 +1,7 @@
 # Conformal Metric: everything related to translating conformal predictors into practice
 
 ## Papers:
-1. [Regression Conformal Prediction under Bias](https://arxiv.org)
+1. [Regression Conformal Prediction under Bias](https://arxiv.org/abs/2410.05263)
 2. [Metric-guided Image Reconstruction Bounds via Conformal Prediction](https://arxiv.org/abs/2404.15274)
 
 ## Code-base Implementations
@@ -10,6 +10,12 @@
 
 ## Please consider citing:
 ```
+@article{cheung2024bias,
+  title={Regression Conformal Prediction under Bias},
+  author={Cheung, Matt Y and Netherton, Tucker J and Court, Laurence E and Veeraraghavan, Ashok and Balakrishnan, Guha},
+  journal={arXiv preprint arXiv:2410.05263},
+  year={2024}
+}
 
 @article{cheung2024metric,
   title={Metric-guided Image Reconstruction Bounds via Conformal Prediction},
